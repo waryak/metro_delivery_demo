@@ -217,6 +217,13 @@
         <h3>Калькулятор доставки</h3>
         <div class="calculator-form">
             <div class="calculator-row">
+                <label for="delivery-type">Тип доставки:</label>
+                <select id="delivery-type">
+                    <option value="standard">Стандартная</option>
+                    <option value="two-points">2 точки B</option>
+                </select>
+            </div>
+            <div class="calculator-row">
                 <label for="base-fee">Подача доставки (₽):</label>
                 <input type="number" id="base-fee" min="0" value="300">
             </div>
@@ -227,6 +234,10 @@
             <div class="calculator-row">
                 <label for="multiplier">Повышающий коэффициент:</label>
                 <input type="number" id="multiplier" min="1" step="0.1" value="1.0">
+            </div>
+            <div class="calculator-row" id="radius-row" style="display: none;">
+                <label>Используемый радиус R:</label>
+                <span id="radius-r-display">0.0 км</span>
             </div>
             <div class="calculator-result">
                 <div class="result-row">
@@ -901,16 +912,46 @@
 
         // Function to update the delivery calculator
         function updateDeliveryCalculator() {
-            // Get the weighted average distance from the stats
-            const weightedAvgElement = document.getElementById('delivery-stats');
-            let weightedAvgDistance = 0;
+            // Get the delivery type
+            const deliveryType = document.getElementById('delivery-type').value;
             
-            if (weightedAvgElement) {
+            // Get the weighted average distance and average distance from the stats
+            const statsElement = document.getElementById('delivery-stats');
+            let weightedAvgDistance = 0;
+            let averageDistance = 0;
+            
+            if (statsElement) {
                 // Extract the weighted average value from the stats text
-                const statsText = weightedAvgElement.innerText;
-                const match = statsText.match(/Взвешенное среднее:\s*([\d.]+)/);
-                if (match && match[1]) {
-                    weightedAvgDistance = parseFloat(match[1]);
+                const statsText = statsElement.innerText;
+                
+                // Get weighted average
+                const weightedMatch = statsText.match(/Взвешенное среднее:\s*([\d.]+)/);
+                if (weightedMatch && weightedMatch[1]) {
+                    weightedAvgDistance = parseFloat(weightedMatch[1]);
+                }
+                
+                // Get average across all addresses
+                const avgMatch = statsText.match(/Среднее по всем адресам:\s*([\d.]+)/);
+                if (avgMatch && avgMatch[1]) {
+                    averageDistance = parseFloat(avgMatch[1]);
+                }
+            }
+            
+            // Calculate the effective distance based on delivery type
+            let effectiveDistance = weightedAvgDistance;
+            let radiusRValue = 0;
+            
+            if (deliveryType === 'two-points') {
+                // For "2 точки B", use the formula (2*r/3 + 0.9*R)
+                // where r is the weighted average
+                // and R is the average across all addresses
+                radiusRValue = averageDistance;
+                effectiveDistance = (2 * weightedAvgDistance / 3) + (0.9 * radiusRValue);
+                
+                // Update the radius R display
+                const radiusRDisplay = document.getElementById('radius-r-display');
+                if (radiusRDisplay) {
+                    radiusRDisplay.textContent = `${radiusRValue.toFixed(1)} км`;
                 }
             }
             
@@ -920,21 +961,33 @@
             const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
             
             // Calculate delivery cost
-            const deliveryCost = (baseFee + (distanceFee * weightedAvgDistance)) * multiplier;
+            const deliveryCost = (baseFee + (distanceFee * effectiveDistance)) * multiplier;
             
             // Update the display
-            document.getElementById('avg-distance').textContent = `${weightedAvgDistance.toFixed(1)} км`;
+            document.getElementById('avg-distance').textContent = `${effectiveDistance.toFixed(1)} км`;
             document.getElementById('delivery-cost').textContent = `${Math.round(deliveryCost)} ₽`;
         }
 
         // Add event listeners to calculator inputs
         document.addEventListener('DOMContentLoaded', function() {
-            const calculatorInputs = ['base-fee', 'distance-fee', 'multiplier'];
+            const calculatorInputs = ['base-fee', 'distance-fee', 'multiplier', 'delivery-type'];
             
             calculatorInputs.forEach(inputId => {
                 const input = document.getElementById(inputId);
                 if (input) {
                     input.addEventListener('input', updateDeliveryCalculator);
+                    if (inputId === 'delivery-type') {
+                        input.addEventListener('change', function() {
+                            // Show/hide the radius display based on delivery type
+                            const radiusRow = document.getElementById('radius-row');
+                            if (this.value === 'two-points') {
+                                radiusRow.style.display = 'flex';
+                            } else {
+                                radiusRow.style.display = 'none';
+                            }
+                            updateDeliveryCalculator();
+                        });
+                    }
                 }
             });
             
