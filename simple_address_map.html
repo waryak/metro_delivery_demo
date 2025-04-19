@@ -153,6 +153,56 @@
             margin-left: 10px;
             font-weight: bold;
         }
+        .calculator-container {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .calculator-container h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .calculator-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .calculator-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .calculator-row label {
+            font-weight: bold;
+            flex: 1;
+        }
+        .calculator-row input {
+            width: 120px;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .calculator-result {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e8f4f8;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .result-row:last-child {
+            margin-bottom: 0;
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #2980b9;
+        }
     </style>
 </head>
 <body>
@@ -161,6 +211,33 @@
             <label for="radius-multiplier">Global Radius Multiplier:</label>
             <input type="range" id="radius-multiplier" min="1" max="10" step="0.5" value="1">
             <span class="value-display" id="radius-value">1.0</span>
+        </div>
+    </div>
+    <div class="calculator-container">
+        <h3>Калькулятор доставки</h3>
+        <div class="calculator-form">
+            <div class="calculator-row">
+                <label for="base-fee">Подача доставки (₽):</label>
+                <input type="number" id="base-fee" min="0" value="300">
+            </div>
+            <div class="calculator-row">
+                <label for="distance-fee">Стоимость за 1 км (₽):</label>
+                <input type="number" id="distance-fee" min="0" value="20">
+            </div>
+            <div class="calculator-row">
+                <label for="multiplier">Повышающий коэффициент:</label>
+                <input type="number" id="multiplier" min="1" step="0.1" value="1.0">
+            </div>
+            <div class="calculator-result">
+                <div class="result-row">
+                    <span>Среднее расстояние:</span>
+                    <span id="avg-distance">0.0 км</span>
+                </div>
+                <div class="result-row">
+                    <span>Стоимость доставки:</span>
+                    <span id="delivery-cost">0 ₽</span>
+                </div>
+            </div>
         </div>
     </div>
     <div class="main-container">
@@ -316,7 +393,8 @@
                 radius: 0, // Will be calculated later
                 baseRadiusKm: 0, // Base radius in kilometers
                 radiusMultiplier: 5, // Initial radius value (instead of multiplier)
-                visible: true // Point visibility
+                visible: true, // Point visibility
+                weight: 1 // Default weight value
             });
         }
 
@@ -519,12 +597,42 @@
             sliderContainer.appendChild(radiusValue);
             addressItem.appendChild(sliderContainer);
             
-            // Добавляем элемент для отображения среднего расстояния доставки
-            const weightedAvgElement = document.createElement('div');
-            weightedAvgElement.className = 'weighted-avg';
-            weightedAvgElement.id = `weighted-avg-${index}`;
-            weightedAvgElement.textContent = 'Среднее расстояние доставки: ...';
-            addressItem.appendChild(weightedAvgElement);
+            // Добавляем элемент для веса
+            const weightContainer = document.createElement('div');
+            weightContainer.className = 'individual-slider';
+            weightContainer.style.marginTop = '8px';
+
+            const weightLabel = document.createElement('label');
+            weightLabel.textContent = 'Weight:';
+
+            const weightInput = document.createElement('input');
+            weightInput.type = 'number';
+            weightInput.min = '1';
+            weightInput.max = '100';
+            weightInput.step = '1';
+            weightInput.value = point.weight;
+            weightInput.dataset.index = index;
+            weightInput.style.width = '50px';
+
+            weightInput.addEventListener('change', function() {
+                const idx = parseInt(this.dataset.index);
+                const weightValue = parseInt(this.value);
+                
+                // Ensure weight is at least 1
+                if (weightValue < 1) {
+                    this.value = '1';
+                    points[idx].weight = 1;
+                } else {
+                    points[idx].weight = weightValue;
+                }
+                
+                // Update the weighted averages
+                updateAllWeightedAverages();
+            });
+
+            weightContainer.appendChild(weightLabel);
+            weightContainer.appendChild(weightInput);
+            addressItem.appendChild(weightContainer);
             
             // Добавляем элемент в список
             addressList.appendChild(addressItem);
@@ -670,8 +778,8 @@
                 // Avoid division by zero, set minimum distance
                 const effectiveDistance = Math.max(distance, 0.1);
                 
-                // Closer points have more weight (inversely proportional to distance)
-                const weight = 1 / effectiveDistance;
+                // Use the weight of the other point as a coefficient
+                const weight = otherPoint.weight / effectiveDistance;
                 
                 // Get the current radius of the other point - use direct radius value
                 const otherRadius = otherPoint.radiusMultiplier; // Use direct radius value
@@ -692,34 +800,40 @@
         // Функция для обновления всех взвешенных средних радиусов
         function updateAllWeightedAverages() {
             let totalDeliveryDistance = 0;
+            let weightedDeliveryDistanceSum = 0;
             let visiblePointsCount = 0;
+            let totalWeight = 0;
             
-            // Обновляем для всех точек
+            // Update for all points
             points.forEach((point, index) => {
                 if (!point.visible) return;
                 
                 const weightedAvg = calculateWeightedAverageRadius(index);
-                // Рассчитываем среднее расстояние доставки по формуле 2*radius/3
+                // Calculate average delivery distance using the formula 2*radius/3
                 const avgDeliveryDistance = (2 * weightedAvg) / 3;
                 
-                // Add to total for statistics
+                // Add to total for unweighted sum
                 totalDeliveryDistance += avgDeliveryDistance;
-                visiblePointsCount++;
                 
-                const weightedAvgElement = document.getElementById(`weighted-avg-${index}`);
-                if (weightedAvgElement) {
-                    weightedAvgElement.textContent = `Среднее расстояние доставки: ${avgDeliveryDistance.toFixed(1)} км`;
-                }
+                // Add to weighted sum for weighted average
+                weightedDeliveryDistanceSum += avgDeliveryDistance * point.weight;
+                totalWeight += point.weight;
+                
+                visiblePointsCount++;
             });
             
-            // Calculate average delivery distance across all visible points
+            // Calculate unweighted average across all visible points
             const averageDeliveryDistance = visiblePointsCount > 0 ? totalDeliveryDistance / visiblePointsCount : 0;
+            
+            // Calculate weighted average
+            const weightedAverageDeliveryDistance = totalWeight > 0 ? weightedDeliveryDistanceSum / totalWeight : 0;
             
             // Update the delivery stats display
             deliveryStatsDiv.innerHTML = `
                 <strong>Статистика доставки:</strong><br>
                 Сумма расстояний: ${totalDeliveryDistance.toFixed(1)} км<br>
-                Среднее по всем адресам: ${averageDeliveryDistance.toFixed(1)} км
+                Среднее по всем адресам: ${averageDeliveryDistance.toFixed(1)} км<br>
+                <strong>Взвешенное среднее:</strong> ${weightedAverageDeliveryDistance.toFixed(1)} км
             `;
         }
 
@@ -783,6 +897,56 @@
                 // Update the "Select All" checkbox without triggering its change event
                 selectAllCheckbox.checked = allChecked;
             }
+        });
+
+        // Function to update the delivery calculator
+        function updateDeliveryCalculator() {
+            // Get the weighted average distance from the stats
+            const weightedAvgElement = document.getElementById('delivery-stats');
+            let weightedAvgDistance = 0;
+            
+            if (weightedAvgElement) {
+                // Extract the weighted average value from the stats text
+                const statsText = weightedAvgElement.innerText;
+                const match = statsText.match(/Взвешенное среднее:\s*([\d.]+)/);
+                if (match && match[1]) {
+                    weightedAvgDistance = parseFloat(match[1]);
+                }
+            }
+            
+            // Get calculator inputs
+            const baseFee = parseFloat(document.getElementById('base-fee').value) || 0;
+            const distanceFee = parseFloat(document.getElementById('distance-fee').value) || 0;
+            const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
+            
+            // Calculate delivery cost
+            const deliveryCost = (baseFee + (distanceFee * weightedAvgDistance)) * multiplier;
+            
+            // Update the display
+            document.getElementById('avg-distance').textContent = `${weightedAvgDistance.toFixed(1)} км`;
+            document.getElementById('delivery-cost').textContent = `${Math.round(deliveryCost)} ₽`;
+        }
+
+        // Add event listeners to calculator inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            const calculatorInputs = ['base-fee', 'distance-fee', 'multiplier'];
+            
+            calculatorInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', updateDeliveryCalculator);
+                }
+            });
+            
+            // Also update when the weighted averages are updated
+            const originalUpdateAllWeightedAverages = updateAllWeightedAverages;
+            updateAllWeightedAverages = function() {
+                originalUpdateAllWeightedAverages.apply(this, arguments);
+                updateDeliveryCalculator();
+            };
+            
+            // Initial update
+            updateDeliveryCalculator();
         });
     </script>
 </body>
