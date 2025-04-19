@@ -141,11 +141,23 @@
             border-radius: 3px;
             display: inline-block;
         }
+        .select-all-container {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .select-all-container input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .select-all-container label {
+            margin-left: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="controls">
-        <div class="slider-container">
+        <div class="slider-container" style="display: none;">
             <label for="radius-multiplier">Global Radius Multiplier:</label>
             <input type="range" id="radius-multiplier" min="1" max="10" step="0.5" value="1">
             <span class="value-display" id="radius-value">1.0</span>
@@ -301,10 +313,10 @@
                 y,
                 lat,
                 lng,
-                radius: 0, // Будет рассчитано позже
-                radiusInKm: 0, // Радиус в километрах
-                radiusMultiplier: 1, // Индивидуальный множитель радиуса
-                visible: true // Видимость точки
+                radius: 0, // Will be calculated later
+                baseRadiusKm: 0, // Base radius in kilometers
+                radiusMultiplier: 5, // Initial radius value (instead of multiplier)
+                visible: true // Point visibility
             });
         }
 
@@ -350,9 +362,7 @@
             // Устанавливаем радиус равным половине расстояния до ближайшей точки,
             // чтобы круги касались друг друга
             point.radius = minDistance * 0.5; 
-            point.radiusInKm = minDistanceKm * 0.5; // Реальный радиус в километрах
-            point.baseRadius = point.radius; // Сохраняем базовый радиус (в пикселях)
-            point.baseRadiusKm = point.radiusInKm; // Сохраняем базовый радиус (в километрах)
+            point.baseRadiusKm = minDistanceKm * 0.5; // Реальный радиус в километрах
         });
 
         // Отображаем точки и круги на карте
@@ -370,7 +380,7 @@
             circle.setAttribute('data-index', index);
             
             // Добавляем обработчики событий
-            circle.addEventListener('mouseover', showCircleTooltip);
+            circle.addEventListener('mouseover', showTooltip);
             circle.addEventListener('mouseout', hideTooltip);
             circle.addEventListener('mousemove', moveTooltip);
             
@@ -406,18 +416,24 @@
         }
         
         // Функция для отображения всплывающей подсказки для круга
-        function showCircleTooltip(event) {
-            const address = this.getAttribute('data-address');
-            const index = parseInt(this.getAttribute('data-index'));
+        function showTooltip(e) {
+            const circle = e.target;
+            const index = parseInt(circle.getAttribute('data-index'));
             const point = points[index];
+            const radius = parseFloat(circle.getAttribute('data-radius')); // Get the actual radius in km
             
-            // Рассчитываем текущий радиус в километрах
-            const globalMultiplier = parseFloat(document.getElementById('radius-multiplier').value);
-            const currentRadiusKm = point.baseRadiusKm * globalMultiplier * point.radiusMultiplier;
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = `
+                <strong>${point.address}</strong><br>
+                Радиус: ${radius.toFixed(1)} км
+            `;
             
-            tooltip.innerHTML = `${address}<br>Радиус: ${currentRadiusKm.toFixed(1)} км`;
+            // Position the tooltip
+            const rect = circle.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX + rect.width/2}px`;
+            tooltip.style.top = `${rect.top + window.scrollY - 10}px`;
+            tooltip.style.transform = 'translate(-50%, -100%)';
             tooltip.style.opacity = '1';
-            moveTooltip.call(this, event);
         }
         
         // Функция для скрытия всплывающей подсказки
@@ -469,13 +485,13 @@
             sliderContainer.className = 'individual-slider';
             
             const sliderLabel = document.createElement('label');
-            sliderLabel.textContent = 'Radius:';
+            sliderLabel.textContent = 'Radius (km):';
             
             const slider = document.createElement('input');
             slider.type = 'range';
             slider.min = '1';
-            slider.max = '10';
-            slider.step = '0.5';
+            slider.max = '50';
+            slider.step = '1';
             slider.value = point.radiusMultiplier;
             slider.dataset.index = index;
             
@@ -485,14 +501,17 @@
             
             slider.addEventListener('input', function() {
                 const idx = parseInt(this.dataset.index);
-                const multiplier = parseFloat(this.value);
-                radiusValue.textContent = multiplier.toFixed(1);
+                const radiusValue = parseFloat(this.value);
+                this.nextElementSibling.textContent = radiusValue.toFixed(1);
                 
-                // Обновляем индивидуальный множитель радиуса
-                points[idx].radiusMultiplier = multiplier;
+                // Update the radius directly
+                points[idx].radiusMultiplier = radiusValue;
                 
-                // Обновляем отображение радиуса
+                // Update the radius display
                 updateRadius(idx);
+                
+                // Ensure metrics are updated (this is redundant but added for safety)
+                updateAllWeightedAverages();
             });
             
             sliderContainer.appendChild(sliderLabel);
@@ -500,11 +519,11 @@
             sliderContainer.appendChild(radiusValue);
             addressItem.appendChild(sliderContainer);
             
-            // Добавляем элемент для отображения средневзвешенного радиуса
+            // Добавляем элемент для отображения среднего расстояния доставки
             const weightedAvgElement = document.createElement('div');
             weightedAvgElement.className = 'weighted-avg';
             weightedAvgElement.id = `weighted-avg-${index}`;
-            weightedAvgElement.textContent = 'Средневзвешенный радиус: ...';
+            weightedAvgElement.textContent = 'Среднее расстояние доставки: ...';
             addressItem.appendChild(weightedAvgElement);
             
             // Добавляем элемент в список
@@ -538,37 +557,34 @@
             const point = points[index];
             const circle = circles[index];
             
-            // Рассчитываем итоговый радиус с учетом глобального множителя и индивидуального
-            const globalMultiplier = parseFloat(document.getElementById('radius-multiplier').value);
-            const newRadius = point.baseRadius * globalMultiplier * point.radiusMultiplier;
+            // Use the radius value directly from the slider
+            const radiusKm = point.radiusMultiplier;
             
-            // Обновляем элемент круга
-            circle.setAttribute('r', newRadius);
-            circle.setAttribute('data-radius', newRadius);
+            // Calculate the pixel radius based on the km radius
+            const pixelRadius = kmToPixels(radiusKm);
+            
+            // Update the circle element
+            circle.setAttribute('r', pixelRadius);
+            circle.setAttribute('data-radius', radiusKm); // Store the actual radius in km
             circle.setAttribute('data-index', index);
             
-            // Обновляем все средневзвешенные значения, так как изменение одного радиуса
-            // влияет на средневзвешенные значения всех точек
+            // Make sure we update all weighted averages
             updateAllWeightedAverages();
         }
         
-        // Слайдер для глобального изменения размера кругов
-        const radiusSlider = document.getElementById('radius-multiplier');
-        const radiusValue = document.getElementById('radius-value');
+        // Add a helper function to convert km to pixels
+        function kmToPixels(kmRadius) {
+            // Get map dimensions
+            const mapInfo = calculateMapDimensions();
+            const svgWidth = parseInt(svg.getAttribute('width'));
+            
+            // Calculate the pixel-to-km ratio
+            const pixelsPerKm = svgWidth / mapInfo.width;
+            
+            // Convert km to pixels
+            return kmRadius * pixelsPerKm;
+        }
         
-        radiusSlider.addEventListener('input', function() {
-            const multiplier = parseFloat(this.value);
-            radiusValue.textContent = multiplier.toFixed(1);
-            
-            // Обновляем радиусы всех кругов
-            points.forEach((point, index) => {
-                updateRadius(index);
-            });
-            
-            // Обновляем все средневзвешенные значения
-            updateAllWeightedAverages();
-        });
-
         // Добавляем расчет центральной точки карты и размеры в километрах
         function calculateMapDimensions() {
             // Находим границы карты (учитывая только видимые точки)
@@ -624,7 +640,14 @@
         mapInfoDiv.id = 'map-info';
         mapInfoDiv.className = 'map-info';
         controlsDiv.appendChild(mapInfoDiv);
-        
+
+        // Add a new div for delivery distance statistics
+        const deliveryStatsDiv = document.createElement('div');
+        deliveryStatsDiv.id = 'delivery-stats';
+        deliveryStatsDiv.className = 'map-info';
+        deliveryStatsDiv.style.marginTop = '10px';
+        controlsDiv.appendChild(deliveryStatsDiv);
+
         // Инициализируем информацию о карте
         updateMapInfo();
 
@@ -634,50 +657,133 @@
             let weightSum = 0;
             let radiusSum = 0;
             
-            // Учитываем только видимые точки
+            // Consider only visible points
             points.forEach((otherPoint, otherIndex) => {
                 if (!otherPoint.visible || pointIndex === otherIndex) return;
                 
-                // Рассчитываем расстояние между точками в километрах
+                // Calculate distance between points in kilometers
                 const distance = calculateGeoDistance(
                     point.lat, point.lng, 
                     otherPoint.lat, otherPoint.lng
                 );
                 
-                // Избегаем деления на ноль, устанавливаем минимальное расстояние
+                // Avoid division by zero, set minimum distance
                 const effectiveDistance = Math.max(distance, 0.1);
                 
-                // Чем ближе точка, тем больше ее вес (обратно пропорционально расстоянию)
+                // Closer points have more weight (inversely proportional to distance)
                 const weight = 1 / effectiveDistance;
                 
-                // Получаем текущий радиус другой точки
-                const globalMultiplier = parseFloat(document.getElementById('radius-multiplier').value);
-                const otherRadius = otherPoint.baseRadiusKm * globalMultiplier * otherPoint.radiusMultiplier;
+                // Get the current radius of the other point - use direct radius value
+                const otherRadius = otherPoint.radiusMultiplier; // Use direct radius value
                 
                 weightSum += weight;
                 radiusSum += otherRadius * weight;
             });
             
-            // Если нет других видимых точек, возвращаем собственный радиус
+            // If there are no other visible points, return own radius
             if (weightSum === 0) {
-                const globalMultiplier = parseFloat(document.getElementById('radius-multiplier').value);
-                return point.baseRadiusKm * globalMultiplier * point.radiusMultiplier;
+                return point.radiusMultiplier; // Use direct radius value
             }
             
-            // Иначе возвращаем взвешенное среднее
+            // Otherwise return weighted average
             return radiusSum / weightSum;
         }
         
         // Функция для обновления всех взвешенных средних радиусов
         function updateAllWeightedAverages() {
+            let totalDeliveryDistance = 0;
+            let visiblePointsCount = 0;
+            
+            // Обновляем для всех точек
             points.forEach((point, index) => {
+                if (!point.visible) return;
+                
                 const weightedAvg = calculateWeightedAverageRadius(index);
+                // Рассчитываем среднее расстояние доставки по формуле 2*radius/3
+                const avgDeliveryDistance = (2 * weightedAvg) / 3;
+                
+                // Add to total for statistics
+                totalDeliveryDistance += avgDeliveryDistance;
+                visiblePointsCount++;
+                
                 const weightedAvgElement = document.getElementById(`weighted-avg-${index}`);
                 if (weightedAvgElement) {
-                    weightedAvgElement.textContent = `Средневзвешенный радиус: ${weightedAvg.toFixed(1)} км`;
+                    weightedAvgElement.textContent = `Среднее расстояние доставки: ${avgDeliveryDistance.toFixed(1)} км`;
                 }
             });
+            
+            // Calculate average delivery distance across all visible points
+            const averageDeliveryDistance = visiblePointsCount > 0 ? totalDeliveryDistance / visiblePointsCount : 0;
+            
+            // Update the delivery stats display
+            deliveryStatsDiv.innerHTML = `
+                <strong>Статистика доставки:</strong><br>
+                Сумма расстояний: ${totalDeliveryDistance.toFixed(1)} км<br>
+                Среднее по всем адресам: ${averageDeliveryDistance.toFixed(1)} км
+            `;
         }
+
+        // Вызываем функцию обновления при загрузке страницы
+        updateAllWeightedAverages();
+
+        // Add this right after the <h3>Addresses</h3> in the sidebar
+        const sidebar = document.getElementById('address-list');
+        const addressesHeader = sidebar.querySelector('h3');
+
+        // Create a container for the "Select All" checkbox
+        const selectAllContainer = document.createElement('div');
+        selectAllContainer.className = 'select-all-container';
+        selectAllContainer.style.marginBottom = '15px';
+        selectAllContainer.style.display = 'flex';
+        selectAllContainer.style.alignItems = 'center';
+
+        // Create the "Select All" checkbox
+        const selectAllCheckbox = document.createElement('input');
+        selectAllCheckbox.type = 'checkbox';
+        selectAllCheckbox.id = 'select-all';
+        selectAllCheckbox.checked = true; // Initially all addresses are visible
+
+        // Create label for the checkbox
+        const selectAllLabel = document.createElement('label');
+        selectAllLabel.htmlFor = 'select-all';
+        selectAllLabel.textContent = 'Select All';
+        selectAllLabel.style.marginLeft = '10px';
+        selectAllLabel.style.fontWeight = 'bold';
+
+        // Add event listener to toggle all checkboxes
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            
+            // Update all address checkboxes
+            const checkboxes = document.querySelectorAll('.address-header input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+                
+                // Trigger the change event for each checkbox
+                const changeEvent = new Event('change');
+                checkbox.dispatchEvent(changeEvent);
+            });
+        });
+
+        // Append elements to the container
+        selectAllContainer.appendChild(selectAllCheckbox);
+        selectAllContainer.appendChild(selectAllLabel);
+
+        // Insert the container after the header
+        addressesHeader.insertAdjacentElement('afterend', selectAllContainer);
+
+        // Modify the existing checkbox change event to update the "Select All" checkbox
+        // Add this to the existing checkbox event listener
+        document.addEventListener('change', function(e) {
+            if (e.target.matches('.address-header input[type="checkbox"]')) {
+                // Check if all checkboxes are checked
+                const allCheckboxes = document.querySelectorAll('.address-header input[type="checkbox"]');
+                const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+                
+                // Update the "Select All" checkbox without triggering its change event
+                selectAllCheckbox.checked = allChecked;
+            }
+        });
     </script>
 </body>
 </html> 
