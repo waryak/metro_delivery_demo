@@ -931,10 +931,9 @@
             // Calculate weighted average
             const weightedAverageDeliveryDistance = totalWeight > 0 ? weightedDeliveryDistanceSum / totalWeight : 0;
             
-            // Update the delivery stats display
+            // Update the delivery stats display - REMOVED "Среднее по всем адресам"
             deliveryStatsDiv.innerHTML = `
                 <strong>Статистика доставки:</strong><br>
-                Среднее по всем адресам: ${weightedAverageDeliveryDistance.toFixed(1)} км<br>
                 Взвешенное средняя дистанция: ${averageDeliveryDistance.toFixed(1)} км
                 
                 <div class="reference-text">
@@ -947,6 +946,10 @@
                     </ol>
                 </div>
             `;
+            
+            // Сохраняем значения в глобальных переменных для использования в калькуляторах
+            window.averageDeliveryDistance = averageDeliveryDistance;
+            window.weightedAverageDeliveryDistance = weightedAverageDeliveryDistance;
         }
 
         // Вызываем функцию обновления при загрузке страницы
@@ -1016,45 +1019,26 @@
             // Get the delivery type
             const deliveryType = document.getElementById('delivery-type').value;
             
-            // Get the weighted average distance and average distance from the stats
-            const statsElement = document.getElementById('delivery-stats');
-            let weightedAvgDistance = 0;
-            let averageDistance = 0;
-            
-            if (statsElement) {
-                // Extract the weighted average value from the stats text
-                const statsText = statsElement.innerText;
-                
-                // Get weighted average - FIXED: updated regex to match new text
-                const weightedMatch = statsText.match(/Взвешенное средняя дистанция:\s*([\d.]+)/);
-                if (weightedMatch && weightedMatch[1]) {
-                    weightedAvgDistance = parseFloat(weightedMatch[1]);
-                }
-                
-                // Get average across all addresses
-                const avgMatch = statsText.match(/Среднее по всем адресам:\s*([\d.]+)/);
-                if (avgMatch && avgMatch[1]) {
-                    averageDistance = parseFloat(avgMatch[1]);
-                }
-            }
+            // Используем сохраненное значение взвешенного среднего расстояния
+            let averageDistance = window.averageDeliveryDistance || 0;
             
             // Calculate the effective distance based on delivery type
-            let effectiveDistance = weightedAvgDistance;
+            let effectiveDistance = averageDistance;
             let radiusRValue = 0;
             let additionalFee = 0;
             
             if (deliveryType === 'two-points') {
-                // For "2 точки Б", use the formula (R + 0.9*R) - UPDATED: removed 2/3 coefficient
+                // For "2 точки Б", use the formula (R + 0.9*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = radiusRValue + (0.9 * radiusRValue);
                 additionalFee = 95; // Additional fee for 2 points
             } else if (deliveryType === 'three-points') {
-                // For "3 точки Б", use the formula (R + 1.5*R) - UPDATED: removed 2/3 coefficient
+                // For "3 точки Б", use the formula (R + 1.5*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = radiusRValue + (1.5 * radiusRValue);
                 additionalFee = 190; // Additional fee for 3 points
             } else if (deliveryType === 'four-points') {
-                // For "4 точки Б", use the formula (R + 1.6*R) - UPDATED: removed 2/3 coefficient
+                // For "4 точки Б", use the formula (R + 1.6*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = radiusRValue + (1.6 * radiusRValue);
                 additionalFee = 285; // Additional fee for 4 points
@@ -1082,7 +1066,7 @@
             // Get multiplier input
             const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
             
-            // Calculate delivery cost using the corrected formula: 135 + 8*D + 30*D + additionalFee
+            // Calculate delivery cost using the formula: 135 + 8*D + 30*D + additionalFee
             const D = effectiveDistance;
             const baseCost = 135;
             const distanceCost = 8 * D;
@@ -1149,23 +1133,11 @@
 
         // Function to update the Magnit delivery calculator
         function updateMagnitCalculator() {
-            // Get the weighted average distance from the stats
-            const statsElement = document.getElementById('delivery-stats');
-            let weightedAvgDistance = 0;
-            
-            if (statsElement) {
-                // Extract the weighted average value from the stats text
-                const statsText = statsElement.innerText;
-                
-                // Get weighted average - FIXED: updated regex to match new text
-                const weightedMatch = statsText.match(/Взвешенное средняя дистанция:\s*([\d.]+)/);
-                if (weightedMatch && weightedMatch[1]) {
-                    weightedAvgDistance = parseFloat(weightedMatch[1]);
-                }
-            }
+            // Используем сохраненное значение взвешенного среднего расстояния
+            let averageDistance = window.averageDeliveryDistance || 0;
             
             // Use the weighted average distance directly
-            const effectiveDistance = weightedAvgDistance;
+            const effectiveDistance = averageDistance;
             
             // Get weight and multiplier inputs
             const weight = parseFloat(document.getElementById('magnit-weight').value) || 10;
