@@ -287,10 +287,6 @@
                 <label for="magnit-weight">Вес доставки (кг):</label>
                 <input type="number" id="magnit-weight" min="0" step="0.1" value="10">
             </div>
-            <div class="calculator-row">
-                <label for="magnit-multiplier">Повышающий коэффициент:</label>
-                <input type="number" id="magnit-multiplier" min="1" step="0.1" value="1.0">
-            </div>
             <div class="calculator-result">
                 <div class="result-row">
                     <span>Среднее расстояние:</span>
@@ -1139,17 +1135,16 @@
             // Use the weighted average distance directly
             const effectiveDistance = averageDistance;
             
-            // Get weight and multiplier inputs
+            // Get weight input
             const weight = parseFloat(document.getElementById('magnit-weight').value) || 10;
-            const multiplier = parseFloat(document.getElementById('magnit-multiplier').value) || 1;
             
-            // Calculate delivery cost using the formula: 365 + 27.5*R + 11*(вес - 10)
+            // Calculate delivery cost using the updated formula: 332 + 20.6*R + 11*(вес - 10)
             const R = effectiveDistance;
-            const baseCost = 365;
-            const distanceCost = 27.5 * R;
+            const baseCost = 332;
+            const distanceCost = 20.6 * R;
             const weightCost = Math.max(0, 11 * (weight - 10)); // Only charge for weight above 10kg
             
-            const deliveryCost = (baseCost + distanceCost + weightCost) * multiplier;
+            const deliveryCost = baseCost + distanceCost + weightCost;
             
             // Update the display
             document.getElementById('magnit-avg-distance').textContent = `${effectiveDistance.toFixed(1)} км`;
@@ -1160,10 +1155,9 @@
             breakdownElement.id = 'magnit-cost-breakdown';
             breakdownElement.className = 'cost-breakdown';
             breakdownElement.innerHTML = `
-                <div class="breakdown-row"><span>Базовая стоимость:</span><span>${baseCost} ₽</span></div>
-                <div class="breakdown-row"><span>Стоимость расстояния (27.5 × ${R.toFixed(1)} км):</span><span>${Math.round(distanceCost)} ₽</span></div>
-                ${weight > 10 ? `<div class="breakdown-row"><span>Доплата за вес (11 × ${(weight - 10).toFixed(1)} кг):</span><span>${Math.round(weightCost)} ₽</span></div>` : ''}
-                ${multiplier !== 1 ? `<div class="breakdown-row"><span>Коэффициент:</span><span>×${multiplier.toFixed(1)}</span></div>` : ''}
+                <div class="breakdown-row"><span>Подача:</span><span>${baseCost} ₽</span></div>
+                <div class="breakdown-row"><span>Дистанция (20.6 × ${R.toFixed(1)} км):</span><span>${Math.round(distanceCost)} ₽</span></div>
+                ${weight > 10 ? `<div class="breakdown-row"><span>Вес (11 × ${(weight - 10).toFixed(1)} кг):</span><span>${Math.round(weightCost)} ₽</span></div>` : ''}
                 <div class="breakdown-row total"><span>Итого:</span><span>${Math.round(deliveryCost)} ₽</span></div>
             `;
 
@@ -1176,30 +1170,8 @@
 
         // Add event listeners to calculator inputs
         document.addEventListener('DOMContentLoaded', function() {
-            // Existing code for Yandex calculator
-            const calculatorInputs = ['multiplier', 'delivery-type'];
-            
-            calculatorInputs.forEach(inputId => {
-                const input = document.getElementById(inputId);
-                if (input) {
-                    input.addEventListener('input', updateDeliveryCalculator);
-                    if (inputId === 'delivery-type') {
-                        input.addEventListener('change', function() {
-                            // Show/hide the radius display based on delivery type
-                            const radiusRow = document.getElementById('radius-row');
-                            if (this.value === 'standard') {
-                                radiusRow.style.display = 'none';
-                            } else {
-                                radiusRow.style.display = 'flex';
-                            }
-                            updateDeliveryCalculator();
-                        });
-                    }
-                }
-            });
-            
             // New event listeners for Magnit calculator
-            const magnitInputs = ['magnit-multiplier', 'magnit-weight'];
+            const magnitInputs = ['magnit-weight'];
             magnitInputs.forEach(inputId => {
                 const input = document.getElementById(inputId);
                 if (input) {
@@ -1246,10 +1218,7 @@
             // Обновляем подписи полей
             const labels = document.querySelectorAll('label');
             labels.forEach(label => {
-                if (label.htmlFor === 'multiplier') label.textContent = 'Повышающий коэффициент:';
                 if (label.htmlFor === 'magnit-weight') label.textContent = 'Вес доставки (кг):';
-                if (label.htmlFor === 'magnit-multiplier') label.textContent = 'Повышающий коэффициент:';
-                if (label.htmlFor === 'delivery-type') label.textContent = 'Тип доставки:';
             });
             
             // Обновляем тексты в результатах
