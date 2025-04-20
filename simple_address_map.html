@@ -203,6 +203,25 @@
             font-size: 1.1em;
             color: #2980b9;
         }
+        .cost-breakdown {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .breakdown-row.total {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #ccc;
+            font-weight: bold;
+            color: #2980b9;
+        }
     </style>
 </head>
 <body>
@@ -224,14 +243,6 @@
                     <option value="three-points">3 точки B</option>
                     <option value="four-points">4 точки B</option>
                 </select>
-            </div>
-            <div class="calculator-row">
-                <label for="base-fee">Подача доставки (₽):</label>
-                <input type="number" id="base-fee" min="0" value="300">
-            </div>
-            <div class="calculator-row">
-                <label for="distance-fee">Стоимость за 1 км (₽):</label>
-                <input type="number" id="distance-fee" min="0" value="20">
             </div>
             <div class="calculator-row">
                 <label for="multiplier">Повышающий коэффициент:</label>
@@ -942,6 +953,7 @@
             // Calculate the effective distance based on delivery type
             let effectiveDistance = weightedAvgDistance;
             let radiusRValue = 0;
+            let additionalFee = 0;
             
             if (deliveryType === 'two-points') {
                 // For "2 точки B", use the formula (2*r/3 + 0.9*R)
@@ -949,14 +961,17 @@
                 // and R is the average across all addresses
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * weightedAvgDistance / 3) + (0.9 * radiusRValue);
+                additionalFee = 95; // Additional fee for 2 points
             } else if (deliveryType === 'three-points') {
                 // For "3 точки B", use the formula (2*R/3 + 1.5*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * radiusRValue / 3) + (1.5 * radiusRValue);
+                additionalFee = 190; // Additional fee for 3 points
             } else if (deliveryType === 'four-points') {
                 // For "4 точки B", use the formula (2*R/3 + 1.6*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * radiusRValue / 3) + (1.6 * radiusRValue);
+                additionalFee = 285; // Additional fee for 4 points
             }
             
             // Update the radius R display
@@ -978,22 +993,43 @@
                 }
             }
             
-            // Get calculator inputs
-            const baseFee = parseFloat(document.getElementById('base-fee').value) || 0;
-            const distanceFee = parseFloat(document.getElementById('distance-fee').value) || 0;
+            // Get multiplier input
             const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
             
-            // Calculate delivery cost
-            const deliveryCost = (baseFee + (distanceFee * effectiveDistance)) * multiplier;
+            // Calculate delivery cost using the corrected formula: 135 + 8*D + 30*D + additionalFee
+            const D = effectiveDistance;
+            const baseCost = 135;
+            const distanceCost = 8 * D;
+            const timeCost = 30 * D;
+            const deliveryCost = (baseCost + distanceCost + timeCost + additionalFee) * multiplier;
             
             // Update the display
             document.getElementById('avg-distance').textContent = `${effectiveDistance.toFixed(1)} км`;
             document.getElementById('delivery-cost').textContent = `${Math.round(deliveryCost)} ₽`;
+
+            // Add cost breakdown
+            const breakdownElement = document.getElementById('cost-breakdown') || document.createElement('div');
+            breakdownElement.id = 'cost-breakdown';
+            breakdownElement.className = 'cost-breakdown';
+            breakdownElement.innerHTML = `
+                <div class="breakdown-row"><span>Базовая стоимость:</span><span>${baseCost} ₽</span></div>
+                <div class="breakdown-row"><span>Стоимость расстояния (8 × ${D.toFixed(1)} км):</span><span>${Math.round(distanceCost)} ₽</span></div>
+                <div class="breakdown-row"><span>Стоимость времени (30 × ${D.toFixed(1)} км):</span><span>${Math.round(timeCost)} ₽</span></div>
+                ${additionalFee > 0 ? `<div class="breakdown-row"><span>Доп. плата за точки:</span><span>${additionalFee} ₽</span></div>` : ''}
+                ${multiplier !== 1 ? `<div class="breakdown-row"><span>Коэффициент:</span><span>×${multiplier.toFixed(1)}</span></div>` : ''}
+                <div class="breakdown-row total"><span>Итого:</span><span>${Math.round(deliveryCost)} ₽</span></div>
+            `;
+
+            // Add the breakdown to the result section if it doesn't exist
+            const resultElement = document.querySelector('.calculator-result');
+            if (!document.getElementById('cost-breakdown')) {
+                resultElement.appendChild(breakdownElement);
+            }
         }
 
         // Add event listeners to calculator inputs
         document.addEventListener('DOMContentLoaded', function() {
-            const calculatorInputs = ['base-fee', 'distance-fee', 'multiplier', 'delivery-type'];
+            const calculatorInputs = ['multiplier', 'delivery-type'];
             
             calculatorInputs.forEach(inputId => {
                 const input = document.getElementById(inputId);
