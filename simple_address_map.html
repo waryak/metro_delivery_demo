@@ -63,6 +63,7 @@
             transition: opacity 0.2s;
             max-width: 250px;
             z-index: 1000;
+            transform: translateX(-50%);
         }
         .controls {
             margin: 20px 0;
@@ -240,7 +241,7 @@
             <div id="tooltip"></div>
         </div>
         <div class="sidebar" id="address-list">
-            <h3>Addresses</h3>
+            <h3>Адреса</h3>
             <!-- Address items will be added dynamically here -->
         </div>
     </div>
@@ -253,9 +254,9 @@
                 <label for="delivery-type">Тип доставки:</label>
                 <select id="delivery-type">
                     <option value="standard">Стандартная</option>
-                    <option value="two-points">2 точки B</option>
-                    <option value="three-points">3 точки B</option>
-                    <option value="four-points">4 точки B</option>
+                    <option value="two-points">2 точки Б</option>
+                    <option value="three-points">3 точки Б</option>
+                    <option value="four-points">4 точки Б</option>
                 </select>
             </div>
             <div class="calculator-row">
@@ -558,12 +559,14 @@
                 Радиус: ${radius.toFixed(1)} км
             `;
             
-            // Position the tooltip
-            const rect = circle.getBoundingClientRect();
-            tooltip.style.left = `${rect.left + window.scrollX + rect.width/2}px`;
-            tooltip.style.top = `${rect.top + window.scrollY - 10}px`;
-            tooltip.style.transform = 'translate(-50%, -100%)';
+            // Position the tooltip just 10px above the cursor
+            const rect = svg.getBoundingClientRect();
+            tooltip.style.left = `${e.clientX}px`;
+            tooltip.style.top = `${e.clientY - 10}px`; // Just 10px above cursor
             tooltip.style.opacity = '1';
+            
+            // Highlight the corresponding address in the sidebar
+            highlightAddressInSidebar(point.address);
         }
         
         // Функция для скрытия всплывающей подсказки
@@ -573,9 +576,60 @@
         
         // Функция для перемещения всплывающей подсказки
         function moveTooltip(event) {
-            const rect = svg.getBoundingClientRect();
-            tooltip.style.left = (event.clientX - rect.left + 10) + 'px';
-            tooltip.style.top = (event.clientY - rect.top - 10) + 'px';
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.left = `${event.clientX}px`;
+            tooltip.style.top = `${event.clientY - 10}px`; // Just 10px above cursor
+        }
+        
+        // Выделение адреса в списке при наведении на точку
+        function highlightAddressInSidebar(address) {
+            // Remove highlight from all items
+            const allItems = document.querySelectorAll('.address-item');
+            allItems.forEach(item => {
+                item.style.backgroundColor = '';
+                item.classList.remove('highlight-active');
+            });
+            
+            // Find the address item with matching text and highlight it
+            const addressItems = document.querySelectorAll('.address-text');
+            let foundItem = null;
+            
+            addressItems.forEach(item => {
+                if (item.textContent === address) {
+                    // Get the parent address-item
+                    const addressItem = item.closest('.address-item');
+                    foundItem = addressItem;
+                    
+                    // Apply highlight
+                    addressItem.style.backgroundColor = '#e3f2fd';
+                    addressItem.classList.add('highlight-active');
+                }
+            });
+            
+            // If we found the item, scroll to center it in the sidebar
+            if (foundItem) {
+                const sidebar = document.getElementById('address-list');
+                
+                // Calculate the position to center the item in the viewport
+                const sidebarHeight = sidebar.clientHeight;
+                const itemHeight = foundItem.offsetHeight;
+                const itemTop = foundItem.offsetTop;
+                
+                // Center the item in the viewport with precise calculation
+                sidebar.scrollTop = itemTop - (sidebarHeight / 2) + (itemHeight / 2);
+                
+                // Ensure the item is fully visible by checking boundaries
+                const itemBottom = itemTop + itemHeight;
+                const scrollBottom = sidebar.scrollTop + sidebarHeight;
+                
+                if (itemTop < sidebar.scrollTop) {
+                    // If item is above visible area, scroll up to show it
+                    sidebar.scrollTop = itemTop;
+                } else if (itemBottom > scrollBottom) {
+                    // If item is below visible area, scroll down to show it
+                    sidebar.scrollTop = itemBottom - sidebarHeight;
+                }
+            }
         }
         
         // Создаем список адресов с элементами управления
@@ -899,7 +953,7 @@
         // Вызываем функцию обновления при загрузке страницы
         updateAllWeightedAverages();
 
-        // Add this right after the <h3>Addresses</h3> in the sidebar
+        // Add this right after the <h3>Адреса</h3> in the sidebar
         const sidebar = document.getElementById('address-list');
         const addressesHeader = sidebar.querySelector('h3');
 
@@ -919,7 +973,7 @@
         // Create label for the checkbox
         const selectAllLabel = document.createElement('label');
         selectAllLabel.htmlFor = 'select-all';
-        selectAllLabel.textContent = 'Select All';
+        selectAllLabel.textContent = 'Выбрать все';
         selectAllLabel.style.marginLeft = '10px';
         selectAllLabel.style.fontWeight = 'bold';
 
@@ -991,19 +1045,19 @@
             let additionalFee = 0;
             
             if (deliveryType === 'two-points') {
-                // For "2 точки B", use the formula (2*r/3 + 0.9*R)
+                // For "2 точки Б", use the formula (2*r/3 + 0.9*R)
                 // where r is the weighted average
                 // and R is the average across all addresses
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * weightedAvgDistance / 3) + (0.9 * radiusRValue);
                 additionalFee = 95; // Additional fee for 2 points
             } else if (deliveryType === 'three-points') {
-                // For "3 точки B", use the formula (2*R/3 + 1.5*R)
+                // For "3 точки Б", use the formula (2*R/3 + 1.5*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * radiusRValue / 3) + (1.5 * radiusRValue);
                 additionalFee = 190; // Additional fee for 3 points
             } else if (deliveryType === 'four-points') {
-                // For "4 точки B", use the formula (2*R/3 + 1.6*R)
+                // For "4 точки Б", use the formula (2*R/3 + 1.6*R)
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * radiusRValue / 3) + (1.6 * radiusRValue);
                 additionalFee = 285; // Additional fee for 4 points
@@ -1195,6 +1249,46 @@
             // Initial updates
             updateDeliveryCalculator();
             updateMagnitCalculator();
+        });
+
+        // Перевод интерфейса на русский язык
+        // Обновляем заголовки и тексты
+        document.addEventListener('DOMContentLoaded', function() {
+            // Перевод заголовка списка адресов
+            const addressHeader = document.querySelector('#address-list h3');
+            if (addressHeader) {
+                addressHeader.textContent = 'Адреса';
+            }
+            
+            // Перевод чекбокса "Select All"
+            const selectAllLabel = document.querySelector('.select-all-container label');
+            if (selectAllLabel) {
+                selectAllLabel.textContent = 'Выбрать все';
+            }
+            
+            // Обновляем тексты в калькуляторах
+            document.getElementById('delivery-type').querySelectorAll('option').forEach(option => {
+                if (option.value === 'standard') option.textContent = 'Стандартная';
+                if (option.value === 'two-points') option.textContent = '2 точки Б';
+                if (option.value === 'three-points') option.textContent = '3 точки Б';
+                if (option.value === 'four-points') option.textContent = '4 точки Б';
+            });
+            
+            // Обновляем подписи полей
+            const labels = document.querySelectorAll('label');
+            labels.forEach(label => {
+                if (label.htmlFor === 'multiplier') label.textContent = 'Повышающий коэффициент:';
+                if (label.htmlFor === 'magnit-weight') label.textContent = 'Вес доставки (кг):';
+                if (label.htmlFor === 'magnit-multiplier') label.textContent = 'Повышающий коэффициент:';
+                if (label.htmlFor === 'delivery-type') label.textContent = 'Тип доставки:';
+            });
+            
+            // Обновляем тексты в результатах
+            const resultLabels = document.querySelectorAll('.result-row span:first-child');
+            resultLabels.forEach(span => {
+                if (span.textContent === 'Average distance:') span.textContent = 'Среднее расстояние:';
+                if (span.textContent === 'Delivery cost:') span.textContent = 'Стоимость доставки:';
+            });
         });
     </script>
 </body>
