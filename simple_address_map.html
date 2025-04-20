@@ -912,8 +912,8 @@
                 if (!point.visible) return;
                 
                 const weightedAvg = calculateWeightedAverageRadius(index);
-                // Calculate average delivery distance using the formula 2*radius/3
-                const avgDeliveryDistance = (2 * weightedAvg) / 3;
+                // Calculate average delivery distance - CHANGED: removed 2/3 coefficient
+                const avgDeliveryDistance = weightedAvg; // Previously: (2 * weightedAvg) / 3
                 
                 // Add to total for unweighted sum
                 totalDeliveryDistance += avgDeliveryDistance;
@@ -931,17 +931,16 @@
             // Calculate weighted average
             const weightedAverageDeliveryDistance = totalWeight > 0 ? weightedDeliveryDistanceSum / totalWeight : 0;
             
-            // Update the delivery stats display - FIX: swap the values to display them correctly
+            // Update the delivery stats display
             deliveryStatsDiv.innerHTML = `
                 <strong>Статистика доставки:</strong><br>
-                Сумма расстояний: ${totalDeliveryDistance.toFixed(1)} км<br>
                 Среднее по всем адресам: ${weightedAverageDeliveryDistance.toFixed(1)} км<br>
-                Взвешенное среднее: ${averageDeliveryDistance.toFixed(1)} км
+                Взвешенное средняя дистанция: ${averageDeliveryDistance.toFixed(1)} км
                 
                 <div class="reference-text">
                     <h4 style="margin-top: 10px; margin-bottom: 5px;">Модель строилась на основании:</h4>
                     <ol style="margin: 0; padding-left: 20px;">
-                        <li>Средняя дистанция доставки внутри зоны с радиусом R = 2R/3</li>
+                        <li>Средняя дистанция доставки внутри зоны с радиусом R = R</li>
                         <li>Среднее расстояние между 2мя случайными точками внутри зоны = 0.9R</li>
                         <li>Средний никратчайший путь проходящий через 3 точки в зоне с радиусом R равен 1.5R</li>
                         <li>Средний никратчайший путь проходящий через 4 точки в зоне с радиусом R равен 1.6R</li>
@@ -1026,8 +1025,8 @@
                 // Extract the weighted average value from the stats text
                 const statsText = statsElement.innerText;
                 
-                // Get weighted average
-                const weightedMatch = statsText.match(/Взвешенное среднее:\s*([\d.]+)/);
+                // Get weighted average - FIXED: updated regex to match new text
+                const weightedMatch = statsText.match(/Взвешенное средняя дистанция:\s*([\d.]+)/);
                 if (weightedMatch && weightedMatch[1]) {
                     weightedAvgDistance = parseFloat(weightedMatch[1]);
                 }
@@ -1045,21 +1044,19 @@
             let additionalFee = 0;
             
             if (deliveryType === 'two-points') {
-                // For "2 точки Б", use the formula (2*r/3 + 0.9*R)
-                // where r is the weighted average
-                // and R is the average across all addresses
+                // For "2 точки Б", use the formula (R + 0.9*R) - UPDATED: removed 2/3 coefficient
                 radiusRValue = averageDistance;
-                effectiveDistance = (2 * weightedAvgDistance / 3) + (0.9 * radiusRValue);
+                effectiveDistance = radiusRValue + (0.9 * radiusRValue);
                 additionalFee = 95; // Additional fee for 2 points
             } else if (deliveryType === 'three-points') {
-                // For "3 точки Б", use the formula (2*R/3 + 1.5*R)
+                // For "3 точки Б", use the formula (R + 1.5*R) - UPDATED: removed 2/3 coefficient
                 radiusRValue = averageDistance;
-                effectiveDistance = (2 * radiusRValue / 3) + (1.5 * radiusRValue);
+                effectiveDistance = radiusRValue + (1.5 * radiusRValue);
                 additionalFee = 190; // Additional fee for 3 points
             } else if (deliveryType === 'four-points') {
-                // For "4 точки Б", use the formula (2*R/3 + 1.6*R)
+                // For "4 точки Б", use the formula (R + 1.6*R) - UPDATED: removed 2/3 coefficient
                 radiusRValue = averageDistance;
-                effectiveDistance = (2 * radiusRValue / 3) + (1.6 * radiusRValue);
+                effectiveDistance = radiusRValue + (1.6 * radiusRValue);
                 additionalFee = 285; // Additional fee for 4 points
             }
             
@@ -1160,8 +1157,8 @@
                 // Extract the weighted average value from the stats text
                 const statsText = statsElement.innerText;
                 
-                // Get weighted average
-                const weightedMatch = statsText.match(/Взвешенное среднее:\s*([\d.]+)/);
+                // Get weighted average - FIXED: updated regex to match new text
+                const weightedMatch = statsText.match(/Взвешенное средняя дистанция:\s*([\d.]+)/);
                 if (weightedMatch && weightedMatch[1]) {
                     weightedAvgDistance = parseFloat(weightedMatch[1]);
                 }
