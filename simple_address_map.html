@@ -232,6 +232,20 @@
             <span class="value-display" id="radius-value">1.0</span>
         </div>
     </div>
+    
+    <!-- Перемещаем карту с адресами в верхнюю часть страницы -->
+    <div class="main-container">
+        <div class="map-container">
+            <svg id="map" width="800" height="600"></svg>
+            <div id="tooltip"></div>
+        </div>
+        <div class="sidebar" id="address-list">
+            <h3>Addresses</h3>
+            <!-- Address items will be added dynamically here -->
+        </div>
+    </div>
+    
+    <!-- Калькуляторы доставки идут после карты -->
     <div class="calculator-container">
         <h3>Калькулятор доставки Яндекс</h3>
         <div class="calculator-form">
@@ -265,7 +279,6 @@
         </div>
     </div>
 
-    <!-- Новый блок расчета для Магнита -->
     <div class="calculator-container magnit-calculator">
         <h3>Калькулятор доставки Магнит</h3>
         <div class="calculator-form">
@@ -287,16 +300,6 @@
                     <span id="magnit-delivery-cost">0 ₽</span>
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="main-container">
-        <div class="map-container">
-            <svg id="map" width="800" height="600"></svg>
-            <div id="tooltip"></div>
-        </div>
-        <div class="sidebar" id="address-list">
-            <h3>Addresses</h3>
-            <!-- Address items will be added dynamically here -->
         </div>
     </div>
 
@@ -805,9 +808,6 @@
         deliveryStatsDiv.style.marginTop = '10px';
         controlsDiv.appendChild(deliveryStatsDiv);
 
-        // Инициализируем информацию о карте
-        updateMapInfo();
-
         // Функция для расчета взвешенного среднего радиуса
         function calculateWeightedAverageRadius(pointIndex) {
             const point = points[pointIndex];
@@ -883,6 +883,16 @@
                 Сумма расстояний: ${totalDeliveryDistance.toFixed(1)} км<br>
                 Среднее по всем адресам: ${weightedAverageDeliveryDistance.toFixed(1)} км<br>
                 Взвешенное среднее: ${averageDeliveryDistance.toFixed(1)} км
+                
+                <div class="reference-text">
+                    <h4 style="margin-top: 10px; margin-bottom: 5px;">Модель строилась на основании:</h4>
+                    <ol style="margin: 0; padding-left: 20px;">
+                        <li>Средняя дистанция доставки внутри зоны с радиусом R = 2R/3</li>
+                        <li>Среднее расстояние между 2мя случайными точками внутри зоны = 0.9R</li>
+                        <li>Средний никратчайший путь проходящий через 3 точки в зоне с радиусом R равен 1.5R</li>
+                        <li>Средний никратчайший путь проходящий через 4 точки в зоне с радиусом R равен 1.6R</li>
+                    </ol>
+                </div>
             `;
         }
 
