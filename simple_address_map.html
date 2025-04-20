@@ -221,6 +221,8 @@
                 <select id="delivery-type">
                     <option value="standard">Стандартная</option>
                     <option value="two-points">2 точки B</option>
+                    <option value="three-points">3 точки B</option>
+                    <option value="four-points">4 точки B</option>
                 </select>
             </div>
             <div class="calculator-row">
@@ -947,11 +949,32 @@
                 // and R is the average across all addresses
                 radiusRValue = averageDistance;
                 effectiveDistance = (2 * weightedAvgDistance / 3) + (0.9 * radiusRValue);
-                
-                // Update the radius R display
+            } else if (deliveryType === 'three-points') {
+                // For "3 точки B", use the formula (2*R/3 + 1.5*R)
+                radiusRValue = averageDistance;
+                effectiveDistance = (2 * radiusRValue / 3) + (1.5 * radiusRValue);
+            } else if (deliveryType === 'four-points') {
+                // For "4 точки B", use the formula (2*R/3 + 1.6*R)
+                radiusRValue = averageDistance;
+                effectiveDistance = (2 * radiusRValue / 3) + (1.6 * radiusRValue);
+            }
+            
+            // Update the radius R display
+            if (deliveryType !== 'standard') {
                 const radiusRDisplay = document.getElementById('radius-r-display');
                 if (radiusRDisplay) {
                     radiusRDisplay.textContent = `${radiusRValue.toFixed(1)} км`;
+                }
+                // Show the radius row
+                const radiusRow = document.getElementById('radius-row');
+                if (radiusRow) {
+                    radiusRow.style.display = 'flex';
+                }
+            } else {
+                // Hide the radius row for standard delivery
+                const radiusRow = document.getElementById('radius-row');
+                if (radiusRow) {
+                    radiusRow.style.display = 'none';
                 }
             }
             
@@ -980,10 +1003,10 @@
                         input.addEventListener('change', function() {
                             // Show/hide the radius display based on delivery type
                             const radiusRow = document.getElementById('radius-row');
-                            if (this.value === 'two-points') {
-                                radiusRow.style.display = 'flex';
-                            } else {
+                            if (this.value === 'standard') {
                                 radiusRow.style.display = 'none';
+                            } else {
+                                radiusRow.style.display = 'flex';
                             }
                             updateDeliveryCalculator();
                         });
