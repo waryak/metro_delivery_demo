@@ -839,12 +839,12 @@
             // Calculate weighted average
             const weightedAverageDeliveryDistance = totalWeight > 0 ? weightedDeliveryDistanceSum / totalWeight : 0;
             
-            // Update the delivery stats display
+            // Update the delivery stats display - FIX: swap the values to display them correctly
             deliveryStatsDiv.innerHTML = `
                 <strong>Статистика доставки:</strong><br>
                 Сумма расстояний: ${totalDeliveryDistance.toFixed(1)} км<br>
-                Среднее по всем адресам: ${averageDeliveryDistance.toFixed(1)} км<br>
-                <strong>Взвешенное среднее:</strong> ${weightedAverageDeliveryDistance.toFixed(1)} км
+                Среднее по всем адресам: ${weightedAverageDeliveryDistance.toFixed(1)} км<br>
+                Взвешенное среднее: ${averageDeliveryDistance.toFixed(1)} км
             `;
         }
 
