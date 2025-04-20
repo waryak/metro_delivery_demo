@@ -233,7 +233,7 @@
         </div>
     </div>
     <div class="calculator-container">
-        <h3>Калькулятор доставки</h3>
+        <h3>Калькулятор доставки Яндекс</h3>
         <div class="calculator-form">
             <div class="calculator-row">
                 <label for="delivery-type">Тип доставки:</label>
@@ -260,6 +260,27 @@
                 <div class="result-row">
                     <span>Стоимость доставки:</span>
                     <span id="delivery-cost">0 ₽</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Новый блок расчета для Магнита -->
+    <div class="calculator-container magnit-calculator">
+        <h3>Калькулятор доставки Магнит</h3>
+        <div class="calculator-form">
+            <div class="calculator-row">
+                <label for="magnit-multiplier">Повышающий коэффициент:</label>
+                <input type="number" id="magnit-multiplier" min="1" step="0.1" value="1.0">
+            </div>
+            <div class="calculator-result">
+                <div class="result-row">
+                    <span>Среднее расстояние:</span>
+                    <span id="magnit-avg-distance">0.0 км</span>
+                </div>
+                <div class="result-row">
+                    <span>Стоимость доставки:</span>
+                    <span id="magnit-delivery-cost">0 ₽</span>
                 </div>
             </div>
         </div>
@@ -1059,6 +1080,102 @@
             
             // Initial update
             updateDeliveryCalculator();
+        });
+
+        // Function to update the Magnit delivery calculator
+        function updateMagnitCalculator() {
+            // Get the weighted average distance from the stats
+            const statsElement = document.getElementById('delivery-stats');
+            let weightedAvgDistance = 0;
+            
+            if (statsElement) {
+                // Extract the weighted average value from the stats text
+                const statsText = statsElement.innerText;
+                
+                // Get weighted average
+                const weightedMatch = statsText.match(/Взвешенное среднее:\s*([\d.]+)/);
+                if (weightedMatch && weightedMatch[1]) {
+                    weightedAvgDistance = parseFloat(weightedMatch[1]);
+                }
+            }
+            
+            // Use the weighted average distance directly
+            const effectiveDistance = weightedAvgDistance;
+            
+            // Get multiplier input
+            const multiplier = parseFloat(document.getElementById('magnit-multiplier').value) || 1;
+            
+            // Calculate delivery cost using the same formula: 135 + 8*D + 30*D
+            const D = effectiveDistance;
+            const baseCost = 135;
+            const distanceCost = 8 * D;
+            const timeCost = 30 * D;
+            const deliveryCost = (baseCost + distanceCost + timeCost) * multiplier;
+            
+            // Update the display
+            document.getElementById('magnit-avg-distance').textContent = `${effectiveDistance.toFixed(1)} км`;
+            document.getElementById('magnit-delivery-cost').textContent = `${Math.round(deliveryCost)} ₽`;
+
+            // Add cost breakdown
+            const breakdownElement = document.getElementById('magnit-cost-breakdown') || document.createElement('div');
+            breakdownElement.id = 'magnit-cost-breakdown';
+            breakdownElement.className = 'cost-breakdown';
+            breakdownElement.innerHTML = `
+                <div class="breakdown-row"><span>Базовая стоимость:</span><span>${baseCost} ₽</span></div>
+                <div class="breakdown-row"><span>Стоимость расстояния (8 × ${D.toFixed(1)} км):</span><span>${Math.round(distanceCost)} ₽</span></div>
+                <div class="breakdown-row"><span>Стоимость времени (30 × ${D.toFixed(1)} км):</span><span>${Math.round(timeCost)} ₽</span></div>
+                ${multiplier !== 1 ? `<div class="breakdown-row"><span>Коэффициент:</span><span>×${multiplier.toFixed(1)}</span></div>` : ''}
+                <div class="breakdown-row total"><span>Итого:</span><span>${Math.round(deliveryCost)} ₽</span></div>
+            `;
+
+            // Add the breakdown to the result section if it doesn't exist
+            const resultElement = document.querySelector('.magnit-calculator .calculator-result');
+            if (!document.getElementById('magnit-cost-breakdown')) {
+                resultElement.appendChild(breakdownElement);
+            }
+        }
+
+        // Add event listeners to calculator inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            // Existing code for Yandex calculator
+            const calculatorInputs = ['multiplier', 'delivery-type'];
+            
+            calculatorInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', updateDeliveryCalculator);
+                    if (inputId === 'delivery-type') {
+                        input.addEventListener('change', function() {
+                            // Show/hide the radius display based on delivery type
+                            const radiusRow = document.getElementById('radius-row');
+                            if (this.value === 'standard') {
+                                radiusRow.style.display = 'none';
+                            } else {
+                                radiusRow.style.display = 'flex';
+                            }
+                            updateDeliveryCalculator();
+                        });
+                    }
+                }
+            });
+            
+            // New event listener for Magnit calculator
+            const magnitMultiplier = document.getElementById('magnit-multiplier');
+            if (magnitMultiplier) {
+                magnitMultiplier.addEventListener('input', updateMagnitCalculator);
+            }
+            
+            // Also update both calculators when the weighted averages are updated
+            const originalUpdateAllWeightedAverages = updateAllWeightedAverages;
+            updateAllWeightedAverages = function() {
+                originalUpdateAllWeightedAverages.apply(this, arguments);
+                updateDeliveryCalculator();
+                updateMagnitCalculator();
+            };
+            
+            // Initial updates
+            updateDeliveryCalculator();
+            updateMagnitCalculator();
         });
     </script>
 </body>
